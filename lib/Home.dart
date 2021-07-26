@@ -11,9 +11,12 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
-  
+  TextEditingController _controllerNewPageTitle = TextEditingController();
+  TextEditingController _controllerNewTitle = TextEditingController();
+  int _selectedPageAction = 0; // 0: Open, 1: Edit, 3: Delete
   List<String> _titles = [];
   List<String> _pages = [];
+  String _appBarText = "My Daily Life";
 
   void initState() {
     _loadPages();
@@ -22,6 +25,7 @@ class _HomeState extends State<Home> {
         _showPages();
       });
     });
+    // _selectedPageAction = 0; //Verificar necessidade
   }
 
   void _loadPages() async {
@@ -30,15 +34,7 @@ class _HomeState extends State<Home> {
     _pages = prefs.getStringList("pages") ?? [];
   }
 
-  TextEditingController _controllerNewPageTitle = TextEditingController();
-
-  // Para verificar se o nome já foi usado
-  String _checkAvailability() {
-    String newPageTitle = _controllerNewPageTitle.text.trim();
-    _controllerNewPageTitle.text = "";
-    if (newPageTitle.isEmpty) {
-      newPageTitle = _getDate();
-    }
+  String _checkAvailability(String newPageTitle) {
     String initialNewPageTitle = newPageTitle;
 
     bool acceptedTitle = false;
@@ -61,7 +57,12 @@ class _HomeState extends State<Home> {
   }
 
   void _createNewPage() async {
-    String newPageTitle = _checkAvailability();
+    String newPageTitle = _controllerNewPageTitle.text.trim();
+    _controllerNewPageTitle.text = "";
+    if (newPageTitle.isEmpty) {
+      newPageTitle = _getDate();
+    }
+    newPageTitle = _checkAvailability(newPageTitle);
     _titles.add(newPageTitle);
     _pages.add("");
 
@@ -103,7 +104,7 @@ class _HomeState extends State<Home> {
               textAlign: TextAlign.left,
             ),
             onPressed: () {
-              _openPage(i);
+              _selectPage(i);
             }
           ),
         )
@@ -112,10 +113,10 @@ class _HomeState extends State<Home> {
     return pages;
   }
 
-  void _openPage(int pag) {
+  void _openPage(int page) {
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (context) => DiaryPage(pageNumber: pag, titles: _titles, pages: _pages,)),
+      MaterialPageRoute(builder: (context) => DiaryPage(pageNumber: page, titles: _titles, pages: _pages,)),
     );
   }
 
@@ -126,11 +127,109 @@ class _HomeState extends State<Home> {
     );
   }
 
+  void _selectPage(int page) {
+    if (_selectedPageAction == 0) {
+      _openPage(page);
+    } else if (_selectedPageAction == 1) {
+      _askNewTitle(page);
+    } else {
+      _deletePage(page);
+    }
+  }
+
+  void _changeSelectedPageAction(int action) {
+    _selectedPageAction = action;
+    if (_selectedPageAction == 0) {
+      setState(() {
+        _appBarText = "My Daily Life";
+      });
+    } else if (_selectedPageAction == 1) {
+      setState(() {
+        _appBarText = "Selecione para editar";
+      });
+    } else if (_selectedPageAction == 2) {
+      setState(() {
+        _appBarText = "Selecione para excluir";
+      });
+    }
+  }
+
+  void _askNewTitle(int page) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) => AlertDialog(
+        title: Text(
+          "Informe um novo título para a página:",
+          textAlign: TextAlign.center,
+        ),
+        content: TextField(
+          keyboardType: TextInputType.text,
+          style: TextStyle(fontSize: 22),
+          decoration: InputDecoration(hintText: _titles[page]),
+          maxLength: 22,
+          controller: _controllerNewTitle,
+        ),
+        actions: <Widget> [
+          Center(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: 10),
+              // ignore: deprecated_member_use
+              child: RaisedButton(
+                padding: EdgeInsets.only(top: 15, right: 70, bottom: 15, left: 70),
+                color: Colors.black,
+                child: Text(
+                  "Renomear",
+                  style: TextStyle(
+                    fontSize: 20,
+                    color: Colors.white,
+                  ),
+                ),
+                onPressed: () {
+                  _editTitle(page);
+                  Navigator.pop(context);
+                }
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _editTitle(int page) async {
+    String newPageTitle = _controllerNewTitle.text.trim();
+    _controllerNewTitle.text = "";
+    if (newPageTitle.isEmpty) {
+      newPageTitle = _titles[page];
+    }
+    newPageTitle = _checkAvailability(newPageTitle);
+    _titles[page] = newPageTitle;
+
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    prefs.setStringList("titles", _titles);
+
+    setState(() {
+      _showPages();
+    });
+    _changeSelectedPageAction(0);
+  }
+
+  void _deletePage(int page) async {
+    _titles.removeAt(page);
+    _pages.removeAt(page);
+
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    prefs.setStringList("titles", _titles);
+    prefs.setStringList("pages", _pages);
+
+    _changeSelectedPageAction(0);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: Container(
           child: Row(
             children: [
@@ -156,7 +255,7 @@ class _HomeState extends State<Home> {
               Padding(
                 padding: EdgeInsets.only(bottom: 5, left: 10),
                 child: Text(
-                  "My Daily Life",
+                  _appBarText,
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -169,18 +268,6 @@ class _HomeState extends State<Home> {
         ),
         backgroundColor: Colors.black,
       ),
-      // appBar: AppBar(
-      //   centerTitle: true,
-      //   title: Text(
-      //     "My Daily Life",
-      //     style: TextStyle(
-      //       color: Colors.white,
-      //       fontWeight: FontWeight.bold,
-      //       fontSize: 24,
-      //     ),
-      //   ),
-      //   backgroundColor: Colors.black,
-      // ),
       body: ListView(
         padding: EdgeInsets.all(16),
         children: _showPages(),
@@ -211,18 +298,19 @@ class _HomeState extends State<Home> {
                   ),
                   backgroundColor: Colors.white,
                   onPressed: () {
+                    _changeSelectedPageAction(0);
                     showDialog(
                       context: context,
                       builder: (BuildContext context) => AlertDialog(
                         title: Text(
-                          "Informe um titulo para a nova página:",
+                          "Informe um título para a nova página:",
                           textAlign: TextAlign.center,
                         ),
                         content: TextField(
                           keyboardType: TextInputType.text,
                           style: TextStyle(fontSize: 22),
                           decoration: InputDecoration(hintText: _getDate()),
-                          maxLength: 20,
+                          maxLength: 22,
                           controller: _controllerNewPageTitle,
                         ),
                         actions: <Widget> [
@@ -275,18 +363,8 @@ class _HomeState extends State<Home> {
                   ),
                   backgroundColor: Colors.white,
                   onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (BuildContext context) => AlertDialog(
-                        title: Text(
-                          "Ainda sem função",
-                          textAlign: TextAlign.center,
-                        ),
-                        // content: ,
-                        // actions: <Widget> [],
-                      ),
-                    );
-                  },
+                    _changeSelectedPageAction(1);
+                  }
                 ),
               ),
             ),
@@ -314,18 +392,8 @@ class _HomeState extends State<Home> {
                   ),
                   backgroundColor: Colors.white,
                   onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (BuildContext context) => AlertDialog(
-                        title: Text(
-                          "Ainda sem função",
-                          textAlign: TextAlign.center,
-                        ),
-                        // content: ,
-                        // actions: <Widget> [],
-                      ),
-                    );
-                  },
+                    _changeSelectedPageAction(2);
+                  }
                 ),
               ),
             ),
