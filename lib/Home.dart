@@ -14,9 +14,14 @@ class _HomeState extends State<Home> {
   TextEditingController _controllerNewPageTitle = TextEditingController();
   TextEditingController _controllerNewTitle = TextEditingController();
   int _selectedPageAction = 0; // 0: Open, 1: Edit, 3: Delete
+  String _appBarText = "My Daily Life";
   List<String> _titles = [];
   List<String> _pages = [];
-  String _appBarText = "My Daily Life";
+  Color _addButtonBackgroundColor = Colors.white;
+  Color _editButtonBackgroundColor = Colors.white;
+  Color _deleteButtonBackgroundColor = Colors.white;
+  bool _editMode = false;
+  bool _deleteMode = false;
 
   void initState() {
     _loadPages();
@@ -25,7 +30,6 @@ class _HomeState extends State<Home> {
         _showPages();
       });
     });
-    // _selectedPageAction = 0; //Verificar necessidade
   }
 
   void _loadPages() async {
@@ -211,7 +215,10 @@ class _HomeState extends State<Home> {
     setState(() {
       _showPages();
     });
+
     _changeSelectedPageAction(0);
+    _editMode = false;
+    _changeButtonColor();
   }
 
   void _deletePage(int page) async {
@@ -223,6 +230,23 @@ class _HomeState extends State<Home> {
     prefs.setStringList("pages", _pages);
 
     _changeSelectedPageAction(0);
+    _deleteMode = false;
+    _changeButtonColor();
+  }
+
+  void _changeButtonColor() {
+    setState(() {
+      if (_editMode) {
+        _editButtonBackgroundColor = Colors.grey;
+      } else {
+        _editButtonBackgroundColor = Colors.white;
+      }
+      if (_deleteMode) {
+        _deleteButtonBackgroundColor = Colors.grey;
+      } else {
+        _deleteButtonBackgroundColor = Colors.white;
+      }
+    });
   }
 
   @override
@@ -296,9 +320,12 @@ class _HomeState extends State<Home> {
                     color: Colors.black,
                     size: 50,
                   ),
-                  backgroundColor: Colors.white,
+                  backgroundColor: _addButtonBackgroundColor,
                   onPressed: () {
                     _changeSelectedPageAction(0);
+                    _changeButtonColor();
+                    _editMode = false;
+                    _deleteMode = false;
                     showDialog(
                       context: context,
                       builder: (BuildContext context) => AlertDialog(
@@ -361,9 +388,17 @@ class _HomeState extends State<Home> {
                     color: Colors.black,
                     size: 50,
                   ),
-                  backgroundColor: Colors.white,
+                  backgroundColor: _editButtonBackgroundColor,
                   onPressed: () {
-                    _changeSelectedPageAction(1);
+                    if (!_editMode) {
+                      _editMode = true;
+                      _deleteMode = false;
+                      _changeSelectedPageAction(1);
+                    } else {
+                      _editMode = false;
+                      _changeSelectedPageAction(0);
+                    }
+                    _changeButtonColor();
                   }
                 ),
               ),
@@ -390,9 +425,17 @@ class _HomeState extends State<Home> {
                     color: Colors.black,
                     size: 50,
                   ),
-                  backgroundColor: Colors.white,
+                  backgroundColor: _deleteButtonBackgroundColor,
                   onPressed: () {
-                    _changeSelectedPageAction(2);
+                    if(!_deleteMode) {
+                      _editMode = false;
+                      _deleteMode = true;
+                      _changeSelectedPageAction(2);
+                    } else {
+                      _deleteMode = false;
+                      _changeSelectedPageAction(0);
+                    }
+                    _changeButtonColor();
                   }
                 ),
               ),
